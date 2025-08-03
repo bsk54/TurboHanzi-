@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh" data-theme="">
+<head>
+  <!--************************************************************************************************************-->
+   <!--******************************************** TurboHanzi ***************************************************-->
+  <!--******************************************** Version 1.01 **************************************************-->
+  <!--******************************************* August 3, 2025 *************************************************-->
+  <!--************************************************************************************************************-->
+  <!--******************************************** Version 1.00 **************************************************-->
+  <!--******************************************* August 2, 2025 *************************************************-->
+  <!--************************************************************************************************************-->
+  <!---------------------------------------------------------------------------------------------------------------->
+  <!------------------------------------ Code by: Bernd Sebastian Kamps -------------------------------------------->
+  <!---------------------------------------------------------------------------------------------------------------->
+  <!-- Description: TurboHanzi is a streamlined single-page web application for turbo-charging your Chinese character learning.            -->
+  <!-- It presents each episode’s new characters as flip cards with immediate Pinyin and automatic pronunciation.                          -->
+  <!-- Navigate forward by tap/swipe, backward by long-press, adjust the font size from the ☰ menu, jump to any card with the slider,      -->
+  <!-- or browse the full list in the List modal. All progress, settings, and last-viewed positions are saved locally for seamless review. -->
+  <!--************************************************************************************************************-->
+  <!-- Repository: https://github.com/bsk54/TurboHanzi    ---------------------------------------------------------->
+  <!-- Web site:   https://aiopop.com/TurboHanzi     --------------------------------------------------------------->
+  <!--************************************************************************************************************-->
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TH – TurboHanzi</title>
+  <link rel="icon" href="THLogoIcon.png" type="image/png">
+
+  <style>
+    :root {
+      --tone1:   #FF4C4C;
+      --tone2:   #FFC107;
+      --tone3:   #2196F3;
+      --tone4:   #4CAF50;
+      --bg:      #f0f2f5;
+      --card-bg: #ffffff;
+      --text-main: #2c3e50;
+      --text-sub:  #666666;
+      --shadow: rgba(0,0,0,0.1);
+      --scale:   1;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background:var(--bg); color:var(--text-main);
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      display:flex; justify-content:center; padding:1rem; min-height:100vh;
+    }
+    .container { width:100%; max-width:600px; }
+    header {
+      display:flex; align-items:center; width:100%;
+      background:linear-gradient(90deg, var(--tone1) 0%, var(--tone2) 25%, var(--tone3) 50%, var(--tone4) 75%);
+      color:#fff; padding:.75rem 1rem; font-size:1.25rem; box-shadow:0 2px 4px var(--shadow);
+      margin-bottom:1rem;
+    }
+    #series-title { flex:1; }
+    #series-select, #episode-select {
+      padding:.5rem; font-size:1rem; border:none; border-radius:.5rem;
+      background:#fff; color:var(--text-main);
+      box-shadow:inset 0 1px 2px var(--shadow); appearance:none; text-align:center;
+    }
+    #series-select { flex:1; max-width:150px; margin-right:7px; }
+    #episode-select { flex:1; max-width:150px; margin-right:1rem; }
+    #menu-button { flex:1; text-align:right; font-size:1.5rem; cursor:pointer; }
+    #menu {
+      position:absolute; top:100%; right:1rem;
+      background:#fff; border:1px solid #ccc; border-radius:.5rem;
+      box-shadow:0 4px 8px var(--shadow); display:none; z-index:10;
+    }
+    #menu .menu-item { padding:.5rem 1rem; cursor:pointer; white-space:nowrap; color:var(--text-main); font-size:.9rem; }
+    #menu .menu-item:hover { background:#f7f7f7; }
+    #font-size-panel {
+      position:absolute; top:calc(100% + .5rem); right:1rem;
+      background:#fff; border:1px solid #ccc; border-radius:.5rem;
+      box-shadow:0 4px 8px var(--shadow); padding:1rem; display:none; z-index:10;
+      width:200px;
+    }
+    #font-size-panel header {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:.5rem; background:var(--tone3); padding:.25rem .5rem;
+      border-radius:.5rem .5rem 0 0; color:#fff;
+    }
+    #font-size-panel > header > button { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#fff; }
+    #font-size-panel label { display:block; margin-bottom:.5rem; font-size:.9rem; color:var(--text-main); }
+    #font-size-panel input[type="range"] { width:100%; }
+
+    .card {
+      position:relative; background:var(--card-bg); border-radius:1rem;
+      padding:2rem; width:100%; text-align:center; box-shadow:0 8px 16px var(--shadow);
+      transition:transform .2s ease; touch-action:pan-y; user-select:none;
+    }
+    .card:hover { transform:translateY(-5px); }
+    .char { font-size:calc(7rem * var(--scale)); margin-bottom:.25rem; }
+    .pinyin { font-size:max(1rem, calc(2rem * var(--scale))); color:var(--tone3); margin-bottom:44px; }
+    .buttons { display:flex; justify-content:center; margin-top:1rem; }
+    .buttons button {
+      padding:.75rem; font-size:1.5rem; border:none; border-radius:.5rem;
+      background:linear-gradient(135deg, var(--tone3), var(--tone2)); color:#fff;
+      box-shadow:0 2px 4px var(--shadow); cursor:pointer; transition:background .2s ease;
+    }
+    .buttons button:hover { background:linear-gradient(135deg, var(--tone2), var(--tone3)); }
+    .instruction { margin-top:.5rem; font-size:.9rem; color:var(--text-sub); }
+    .counter { margin-top:.5rem; font-size:.9rem; color:var(--text-sub); }
+    #card-slider { width:100%; margin-top:33px; -webkit-appearance:none; background:transparent; }
+    #card-slider::-webkit-slider-runnable-track { height:4px; background:var(--tone2); border-radius:2px; }
+    #card-slider::-webkit-slider-thumb {
+      -webkit-appearance:none; width:16px; height:16px; background:var(--tone3);
+      border-radius:50%; margin-top:-6px; cursor:pointer;
+    }
+    #toast {
+      position:absolute; top:10px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,0.75); color:#fff; padding:.5rem 1rem; border-radius:.5rem;
+      font-size:.9rem; display:none; z-index:5;
+    }
+
+    /* List modal overlay with vertical padding */
+    #list-modal-overlay {
+      display:none; position:fixed;
+      top:20px; bottom:20px; left:0; right:0;
+      background:rgba(0,0,0,0.5);
+      align-items:center; justify-content:center;
+      z-index:100; padding:0 0; box-sizing:border-box;
+    }
+    #list-modal {
+      position:relative; width:30vw; min-width:300px; max-width:90vw;
+      background:var(--card-bg); border-radius:1rem; padding:1rem;
+      box-shadow:0 8px 16px var(--shadow); font-size:16px;
+      max-height:100%; overflow:auto;
+    }
+    #list-content li.marked { background-color:rgba(255,255,0,0.3); }
+    .list-modal-header {
+      display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;
+    }
+    .list-modal-header button {
+      background:var(--tone3); border:none; color:#fff; padding:.5rem .75rem;
+      font-size:.9rem; border-radius:.5rem; cursor:pointer;
+      box-shadow:0 2px 4px var(--shadow); transition:background .2s ease;
+    }
+    .list-modal-header button:hover { background:var(--tone2); }
+    #list-font-panel { margin-bottom:.5rem; }
+    #list-font-panel label { display:block; margin-bottom:.5rem; }
+    #list-font-panel input[type="range"] { width:100%; }
+    .list-close.top {
+      position:absolute; top:1rem; right:1rem; width:32px; height:32px;
+      background:var(--tone1); color:#fff; border:none; border-radius:50%;
+      font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    }
+    .list-body { margin-top:1rem; max-height:calc(100% - 4rem); overflow-y:auto; }
+    #list-content { list-style:none; padding:0; margin:0; }
+    #list-content li {
+      padding:.25rem 0; cursor:pointer; display:flex; align-items:center;
+    }
+    #list-content li strong {
+      width:2rem; flex-shrink:0; font-size:calc(1em - 4px);
+    }
+    #list-content li .list-char { font-size:1em; }
+    #list-content li .list-pinyin { margin-left:.5rem; font-size:calc(1em - 4px); color:var(--text-sub); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div id="series-title">TH</div>
+      <select id="series-select"></select>
+      <select id="episode-select"></select>
+      <div id="menu-button">☰</div>
+      <div id="menu">
+        <div class="menu-item" id="font-menu-item">Font size</div>
+        <div class="menu-item" id="about-menu-item">About</div>
+      </div>
+      <div id="font-size-panel">
+        <header>
+          <span>Font size</span>
+          <button id="font-panel-close">×</button>
+        </header>
+        <label for="font-slider">Scale: <span id="scale-value">100%</span></label>
+        <input type="range" id="font-slider" min="20" max="150" value="100">
+      </div>
+    </header>
+
+    <div class="card" id="card">
+      <div id="toast">No cards in this episode</div>
+      <div class="char" id="char"></div>
+      <div class="pinyin" id="pinyin"></div>
+      <div class="buttons">
+        <button id="speak-btn">🔊</button>
+      </div>
+      <div class="instruction">Swipe or tap/long-tap card</div>
+      <div class="counter" id="counter"></div>
+      <input type="range" id="card-slider" min="1" value="1">
+      <button id="list-btn" style="margin-top:1rem; padding:.5rem 1rem; border:none; border-radius:.5rem; background:var(--tone2); color:#fff; cursor:pointer;">
+        List
+      </button>
+    </div>
+  </div>
+
+  <!-- List Modal -->
+  <div id="list-modal-overlay">
+    <div id="list-modal">
+      <div class="list-modal-header">
+        <button id="filter-toggle">Only ★</button>
+        <button class="list-close top" id="list-close-top">×</button>
+      </div>
+      <div id="list-font-panel">
+        <label for="list-font-slider">Font size: <span id="list-font-value">16px</span></label>
+        <input type="range" id="list-font-slider" min="12" max="32" value="16">
+      </div>
+      <div class="list-body">
+        <ul id="list-content"></ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="TurboHanzi.json"></script>
+  <script>
+    const STORAGE_SERIES  = 'cc_series';
+    const STORAGE_EP      = 'cc_episode';
+    const STORAGE_FS      = 'cc_fontSize';
+    const STORAGE_CARD    = 'cc_card';
+    const STORAGE_LIST_FS = 'cc_listFontSize';
+    const YELLOW_PREFIX   = 'th_yellow_';
+
+    const seriesSelect = document.getElementById('series-select');
+    const epSelect     = document.getElementById('episode-select');
+    const charEl       = document.getElementById('char');
+    const pinyinEl     = document.getElementById('pinyin');
+    const counterEl    = document.getElementById('counter');
+    const speakBtn     = document.getElementById('speak-btn');
+    const card         = document.getElementById('card');
+    const toast        = document.getElementById('toast');
+    const menuBtn      = document.getElementById('menu-button');
+    const menu         = document.getElementById('menu');
+    const fontItem     = document.getElementById('font-menu-item');
+    const aboutItem    = document.getElementById('about-menu-item');
+    const panel        = document.getElementById('font-size-panel');
+    const closeBtn     = document.getElementById('font-panel-close');
+    const sliderFS     = document.getElementById('font-slider');
+    const scaleVal     = document.getElementById('scale-value');
+    const cardSlider   = document.getElementById('card-slider');
+    const listBtn      = document.getElementById('list-btn');
+    const overlay      = document.getElementById('list-modal-overlay');
+    const closeTop     = document.getElementById('list-close-top');
+    const listContent  = document.getElementById('list-content');
+    const listSlider   = document.getElementById('list-font-slider');
+    const listValue    = document.getElementById('list-font-value');
+    const listModal    = document.getElementById('list-modal');
+    const filterToggle = document.getElementById('filter-toggle');
+
+    const allData = data;
+    let currentSeries, currentChapter, index;
+    let pressTimer, longPress, startX, toastTimer;
+    let yellowMarks = [];
+    let filterOn = false;
+
+    function showToast(msg='No cards in this episode') {
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(()=>toast.style.display='none',1500);
+    }
+    function speakCharacter(txt) {
+      if(!speechSynthesis) return;
+      speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(txt);
+      utter.lang = 'zh-CN';
+      const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('zh'));
+      if(voices.length) utter.voice = voices[0];
+      speechSynthesis.speak(utter);
+    }
+    function render() {
+      const cards = currentChapter.cards;
+      cardSlider.max = cards.length||1;
+      cardSlider.value = cards.length? index+1:1;
+      if(!cards.length) return showToast();
+      const {ch,py} = cards[index];
+      charEl.textContent = ch;
+      pinyinEl.textContent = py;
+      counterEl.textContent = `${index+1} / ${cards.length}`;
+      speakCharacter(ch);
+    }
+
+    function episodeKey() {
+      return YELLOW_PREFIX + currentSeries + '_ep' + currentChapter.chapter;
+    }
+    function loadYellowMarks() {
+      const stored = localStorage.getItem(episodeKey());
+      yellowMarks = stored? JSON.parse(stored): [];
+    }
+    function saveYellowMarks() {
+      localStorage.setItem(episodeKey(), JSON.stringify(yellowMarks));
+    }
+    function applyFilter() {
+      listContent.querySelectorAll('li').forEach(li=>{
+        li.style.display = (!filterOn || li.classList.contains('marked')) ? '' : 'none';
+      });
+    }
+    function toggleMark(li) {
+      const idx = +li.dataset.idx;
+      const pos = yellowMarks.indexOf(idx);
+      if(pos>=0) {
+        yellowMarks.splice(pos,1);
+        li.classList.remove('marked');
+      } else {
+        yellowMarks.push(idx);
+        li.classList.add('marked');
+      }
+      saveYellowMarks();
+      if(filterOn) {
+        if(!li.classList.contains('marked')) li.style.display='none';
+        if(yellowMarks.length===0) {
+          filterOn=false;
+          filterToggle.textContent='Only ★';
+          applyFilter();
+        }
+      }
+    }
+
+    function attachRowListeners() {
+      listContent.querySelectorAll('li').forEach(li=>{
+        // click/tap: pronounce
+        li.addEventListener('click',() => {
+          speakCharacter(currentChapter.cards[+li.dataset.idx].ch);
+        });
+        // long-press: toggle mark
+        let rowTimer, moved=false;
+        li.addEventListener('touchstart',e=>{
+          moved=false; rowTimer = setTimeout(()=>{ toggleMark(li); moved=true; },600);
+        });
+        li.addEventListener('touchmove',() => {
+          moved=true; clearTimeout(rowTimer);
+        });
+        li.addEventListener('touchend',e=>{
+          clearTimeout(rowTimer);
+          if(!moved) {
+            speakCharacter(currentChapter.cards[+li.dataset.idx].ch);
+          }
+        });
+        // desktop long-press
+        li.addEventListener('mousedown',e=>{
+          e.preventDefault();
+          rowTimer = setTimeout(()=>toggleMark(li),600);
+        });
+        ['mouseup','mouseleave'].forEach(evt=>
+          li.addEventListener(evt,()=>clearTimeout(rowTimer))
+        );
+      });
+    }
+
+    listBtn.addEventListener('click',()=>{
+      listContent.innerHTML = currentChapter.cards.map((c,i)=>
+        `<li data-idx="${i}"><strong>${i+1}.</strong><span class="list-char">${c.ch}</span><span class="list-pinyin">${c.py}</span></li>`
+      ).join('');
+      loadYellowMarks();
+      yellowMarks.forEach(idx=>{
+        const li=listContent.querySelector(`li[data-idx="${idx}"]`);
+        if(li) li.classList.add('marked');
+      });
+      attachRowListeners();
+      applyFilter();
+      overlay.style.display='flex';
+    });
+    closeTop.addEventListener('click',()=>overlay.style.display='none');
+    overlay.addEventListener('click',e=>{ if(e.target===overlay) overlay.style.display='none'; });
+
+    listSlider.addEventListener('input',()=>{
+      listValue.textContent=listSlider.value+'px';
+      listModal.style.fontSize=listSlider.value+'px';
+    });
+    listSlider.addEventListener('change',()=>{
+      localStorage.setItem(STORAGE_LIST_FS, listSlider.value);
+    });
+
+    filterToggle.addEventListener('click',()=>{
+      filterOn = !filterOn;
+      filterToggle.textContent = filterOn? 'All' : 'Only ★';
+      applyFilter();
+    });
+
+    // --- series/episode/card setup & navigation unchanged ---
+    allData.forEach(s=>{
+      let o=document.createElement('option');
+      o.value=s.series; o.text=s.series;
+      seriesSelect.append(o);
+    });
+    let savedS=localStorage.getItem(STORAGE_SERIES),
+        initS=allData.some(s=>s.series===savedS)? savedS: allData[0].series;
+    seriesSelect.value=initS;
+    function populateEpisodes(){
+      epSelect.innerHTML='';
+      let sd=allData.find(s=>s.series===seriesSelect.value);
+      sd.chapters.forEach(ch=>{
+        let o=document.createElement('option');
+        o.value=ch.chapter; o.text='Episode '+ch.chapter;
+        epSelect.append(o);
+      });
+    }
+    populateEpisodes();
+    let savedE=+localStorage.getItem(STORAGE_EP),
+        chArr=allData.find(s=>s.series===initS).chapters,
+        initE=chArr.some(c=>c.chapter===savedE)?savedE:chArr[0].chapter;
+    epSelect.value=initE;
+    currentSeries=seriesSelect.value;
+    currentChapter=allData.find(s=>s.series===currentSeries).chapters.find(c=>c.chapter===initE);
+    let savedC=+localStorage.getItem(STORAGE_CARD);
+    index=(savedC>0&&savedC<=currentChapter.cards.length)? savedC-1:0;
+
+    let sf=localStorage.getItem(STORAGE_FS);
+    if(sf){
+      sliderFS.value=sf;
+      document.documentElement.style.setProperty('--scale', sf/100);
+      scaleVal.textContent=sf+'%';
+    }
+    let slf=localStorage.getItem(STORAGE_LIST_FS);
+    if(slf){
+      listSlider.value=slf;
+      listValue.textContent=slf+'px';
+      listModal.style.fontSize=slf+'px';
+    }
+
+    seriesSelect.addEventListener('change', e=>{
+      localStorage.setItem(STORAGE_SERIES, e.target.value);
+      populateEpisodes();
+      epSelect.dispatchEvent(new Event('change'));
+    });
+    epSelect.addEventListener('change', ()=>{
+      let ep=+epSelect.value;
+      localStorage.setItem(STORAGE_EP, ep);
+      currentSeries=seriesSelect.value;
+      currentChapter=allData.find(s=>s.series===currentSeries).chapters.find(c=>c.chapter===ep);
+      index=0; localStorage.setItem(STORAGE_CARD,1);
+      render();
+    });
+
+    speakBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      speakCharacter(currentChapter.cards[index].ch);
+    });
+
+    card.addEventListener('click', ()=>{
+      if(longPress){ longPress=false; return; }
+      let L=currentChapter.cards.length; if(!L) return showToast();
+      index=(index+1)%L; localStorage.setItem(STORAGE_CARD,index+1); render();
+    });
+    card.addEventListener('mousedown',()=>{
+      longPress=false;
+      pressTimer=setTimeout(()=>{
+        longPress=true;
+        index=(index-1+currentChapter.cards.length)%currentChapter.cards.length;
+        localStorage.setItem(STORAGE_CARD,index+1);
+        render();
+      },600);
+    });
+    card.addEventListener('touchstart',()=>{
+      longPress=false;
+      pressTimer=setTimeout(()=>{
+        longPress=true;
+        index=(index-1+currentChapter.cards.length)%currentChapter.cards.length;
+        localStorage.setItem(STORAGE_CARD,index+1);
+        render();
+      },600);
+    });
+    ['mouseup','mouseleave','touchend','touchmove'].forEach(evt=>card.addEventListener(evt,()=>clearTimeout(pressTimer)));
+    card.addEventListener('touchstart',e=>startX=e.changedTouches[0].clientX);
+    card.addEventListener('touchend',e=>{
+      let diff=e.changedTouches[0].clientX-startX;
+      if(Math.abs(diff)>50){
+        let L=currentChapter.cards.length;
+        if(diff<0) index=(index+1)%L; else index=(index-1+L)%L;
+        localStorage.setItem(STORAGE_CARD,index+1);
+        render();
+      }
+    });
+
+    document.addEventListener('keydown',e=>{
+      if(e.target===epSelect||e.target===sliderFS) return;
+      if(e.key==='ArrowRight') card.click();
+      else if(e.key==='ArrowLeft'){
+        index=(index-1+currentChapter.cards.length)%currentChapter.cards.length;
+        localStorage.setItem(STORAGE_CARD,index+1); render();
+      }
+      else if(e.key.toLowerCase()==='s') speakCharacter(currentChapter.cards[index].ch);
+      else if(e.key==='Escape') menu.style.display=panel.style.display=overlay.style.display='none';
+    });
+    cardSlider.addEventListener('input',e=>{
+      index=+e.target.value-1;
+      localStorage.setItem(STORAGE_CARD,index+1); render();
+    });
+
+    menuBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      menu.style.display = menu.style.display==='block'? 'none':'block';
+      panel.style.display='none';
+    });
+    document.addEventListener('click',e=>{
+      if(!menu.contains(e.target)&&e.target!==menuBtn) menu.style.display='none';
+      if(!panel.contains(e.target)&&e.target!==fontItem) panel.style.display='none';
+    });
+    fontItem.addEventListener('click',e=>{
+      e.stopPropagation(); menu.style.display='none'; panel.style.display='block';
+    });
+    aboutItem.addEventListener('click',e=>e.stopPropagation());
+    closeBtn.addEventListener('click',e=>{
+      e.stopPropagation(); panel.style.display='none';
+    });
+    sliderFS.addEventListener('input',()=>{
+      let v=sliderFS.value;
+      document.documentElement.style.setProperty('--scale',v/100);
+      scaleVal.textContent=v+'%';
+    });
+    sliderFS.addEventListener('change',()=>{
+      localStorage.setItem(STORAGE_FS,sliderFS.value);
+      panel.style.display='none';
+    });
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
